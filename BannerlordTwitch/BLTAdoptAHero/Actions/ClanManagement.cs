@@ -13,6 +13,7 @@ using BLTAdoptAHero.Annotations;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
 using TaleWorlds.CampaignSystem.Party;
+using TaleWorlds.CampaignSystem.Party.PartyComponents;
 using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
@@ -357,6 +358,59 @@ namespace BLTAdoptAHero.Actions
             }
         }
 
+        var partyStats = new StringBuilder();
+        private void partyCreate(Hero adoptedHero)
+        {
+            if (adoptedHero.PartyBelongedTo == null && !adoptedHero.IsPrisoner && !adoptedHero.Clan.Leader.IsHumanPlayerCharacter)
+            {
+                if (!adoptedHero.IsClanLeader && adoptedHero.Clan.WarPartyComponents.Count >= adoptedHero.Clan.CommanderLimit)
+                {
+                    partyStats.Append("{=sKbTZzds} | Party limit reached".Translate());
+                    return;
+                }
+                //if (adoptedHero.Clan.Kingdom != null && !Kingdom.All.Any(k => k != adoptedHero.Clan.Kingdom && adoptedHero.Clan.Kingdom.IsAtWarWith(k)) && !adoptedHero.Clan.IsUnderMercenaryService)
+                //{
+                //    partyStats.Append("{=TESTING} | No wars".Translate());
+                //    return;
+                //}
+                else
+                {
+                    if (adoptedHero.GovernorOf != null)
+                    {
+                        var govFief = adoptedHero.GovernorOf;
+                        ChangeGovernorAction.RemoveGovernorOfIfExists(govFief);
+                    }
+                    try
+                    {
+                        //adoptedHero.ChangeState(Hero.CharacterStates.Active);
+                        var party = adoptedHero.Clan.CreateNewMobileParty(adoptedHero);
+                        var retinue = BLTAdoptAHeroCampaignBehavior.Current.GetRetinue(adoptedHero).ToList();
+                        foreach (var retinueTroop in retinue)
+                        {
+                            if (retinueTroop != null)
+                            {
+                                party.MemberRoster.AddToCounts(retinueTroop, 1);
+                                partyStats.Append($" | Added retinue troop {retinueTroop.Name} to party");
+                            }
+                        }
+                        partyStats.Append("{=wNXoOa5K} | Create party complete".Translate());
+                    }
+                    catch
+                    {
+                        partyStats.Append("{=rFBSpayQ} | Create party failed".Translate());
+                        var clan = adoptedHero.Clan;
+                        bool leader = adoptedHero.IsClanLeader;
+
+                        adoptedHero.Clan = null;
+                        adoptedHero.Clan = clan;
+                        adoptedHero.Clan.SetLeader(adoptedHero);
+                        if (leader)
+                            adoptedHero.Clan.SetLeader(adoptedHero);
+                    }
+                }
+            }
+        }
+
         private void HandleJoinCommand(Settings settings, Hero adoptedHero, string desiredName, Action<string> onSuccess, Action<string> onFailure)
         {
             if (!settings.JoinEnabled)
@@ -459,6 +513,7 @@ namespace BLTAdoptAHero.Actions
                 onSuccess("{=vBmuM0Hn}{heroName} has become a noble!".Translate(("heroName", adoptedHero.Name.ToString())));
                 adoptedHero.SetNewOccupation(Occupation.Lord);
             }
+            partyCreate(adoptedHero);
         }
 
         private void HandleLeadCommand(Settings settings, Hero adoptedHero, Action<string> onSuccess, Action<string> onFailure)
@@ -612,49 +667,6 @@ namespace BLTAdoptAHero.Actions
             {
                 onFailure("{=yPeUCq8t}You are not in a clan".Translate());
                 return;
-            }
-            var partyStats = new StringBuilder();
-            void partyCreate(Hero adoptedHero)
-            {
-                if (adoptedHero.PartyBelongedTo == null && !adoptedHero.IsPrisoner && !adoptedHero.Clan.Leader.IsHumanPlayerCharacter)
-                {
-                    if (!adoptedHero.IsClanLeader && adoptedHero.Clan.WarPartyComponents.Count >= adoptedHero.Clan.CommanderLimit)
-                    {
-                        partyStats.Append("{=sKbTZzds} | Party limit reached".Translate());
-                        return;
-                    }
-                    //if (adoptedHero.Clan.Kingdom != null && !Kingdom.All.Any(k => k != adoptedHero.Clan.Kingdom && adoptedHero.Clan.Kingdom.IsAtWarWith(k)) && !adoptedHero.Clan.IsUnderMercenaryService)
-                    //{
-                    //    partyStats.Append("{=TESTING} | No wars".Translate());
-                    //    return;
-                    //}
-                    else
-                    {
-                        if (adoptedHero.GovernorOf != null)
-                        {
-                            var govFief = adoptedHero.GovernorOf;
-                            ChangeGovernorAction.RemoveGovernorOfIfExists(govFief);
-                        }
-                        try
-                        {
-                            //adoptedHero.ChangeState(Hero.CharacterStates.Active);
-                            adoptedHero.Clan.CreateNewMobileParty(adoptedHero);
-                            partyStats.Append("{=wNXoOa5K} | Create party".Translate());
-                        }
-                        catch
-                        {
-                            partyStats.Append("{=rFBSpayQ} | Create party failed".Translate());
-                            var clan = adoptedHero.Clan;
-                            bool leader = adoptedHero.IsClanLeader;
-
-                            adoptedHero.Clan = null;
-                            adoptedHero.Clan = clan;
-                            adoptedHero.Clan.SetLeader(adoptedHero);
-                            if (leader)
-                                adoptedHero.Clan.SetLeader(adoptedHero);
-                        }
-                    }
-                }
             }
 
             if (adoptedHero.HeroState == Hero.CharacterStates.Released)
