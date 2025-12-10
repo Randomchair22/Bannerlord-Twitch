@@ -358,8 +358,7 @@ namespace BLTAdoptAHero.Actions
             }
         }
 
-        var partyStats = new StringBuilder();
-        private void partyCreate(Hero adoptedHero)
+        private void partyCreate(Hero adoptedHero, StringBuilder partyStats)
         {
             if (adoptedHero.PartyBelongedTo == null && !adoptedHero.IsPrisoner && !adoptedHero.Clan.Leader.IsHumanPlayerCharacter)
             {
@@ -513,7 +512,7 @@ namespace BLTAdoptAHero.Actions
                 onSuccess("{=vBmuM0Hn}{heroName} has become a noble!".Translate(("heroName", adoptedHero.Name.ToString())));
                 adoptedHero.SetNewOccupation(Occupation.Lord);
             }
-            partyCreate(adoptedHero);
+            partyCreate(adoptedHero, partyStats);
         }
 
         private void HandleLeadCommand(Settings settings, Hero adoptedHero, Action<string> onSuccess, Action<string> onFailure)
@@ -668,6 +667,7 @@ namespace BLTAdoptAHero.Actions
                 onFailure("{=yPeUCq8t}You are not in a clan".Translate());
                 return;
             }
+            var partyStats = new StringBuilder();
 
             if (adoptedHero.HeroState == Hero.CharacterStates.Released)
                 partyStats.Append("{=r1nJTiSA}Your hero has just been released".Translate());
@@ -685,7 +685,7 @@ namespace BLTAdoptAHero.Actions
             {
                 var govFief = adoptedHero.Clan.Settlements.Find(s => s.Town != null && s.Town.Governor == adoptedHero);
                 partyStats.Append("{=ocrxKWUF}Governor: {governor}".Translate(("governor", govFief.Name.ToString())));
-                partyCreate(adoptedHero);
+                partyCreate(adoptedHero, partyStats);
             }
             else if (adoptedHero.IsPartyLeader)
             {
@@ -900,12 +900,12 @@ namespace BLTAdoptAHero.Actions
             else if (adoptedHero.StayingInSettlement != null)
             {
                 partyStats.Append("{=dMOlobea}Your hero is staying at {place}".Translate(("place", adoptedHero.StayingInSettlement.Name.ToString())));
-                partyCreate(adoptedHero);
+                partyCreate(adoptedHero, partyStats);
             }
             else
             {
                 partyStats.Append("{=LVFh1Pd5}Your hero is not leading a party".Translate());
-                partyCreate(adoptedHero);
+                partyCreate(adoptedHero, partyStats);
             }
 
             onSuccess("{=TESTING}{party}".Translate(("party", partyStats.ToString())));
