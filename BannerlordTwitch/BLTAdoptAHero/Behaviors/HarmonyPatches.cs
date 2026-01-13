@@ -13,6 +13,7 @@ using TaleWorlds.Core;
 using NavalDLC.CampaignBehaviors;
 using NavalDLC.CharacterDevelopment;
 using BannerlordTwitch.Util;
+using BLTAdoptAHero;
 using TaleWorlds.CampaignSystem.GameComponents;
 using TaleWorlds.CampaignSystem.Election;
 using TaleWorlds.CampaignSystem.ViewModelCollection.KingdomManagement.Diplomacy;
@@ -23,6 +24,7 @@ namespace BLTAdoptAHero
     {
         public static bool _allowKingdomMove = false;
         public static bool _allowDiplomacyAction = false;
+        public static bool _allowMarriage = false;
     }
     #region FactionDiscontinuationCampaignBehavior
     [HarmonyPatch(typeof(FactionDiscontinuationCampaignBehavior))]
@@ -299,6 +301,42 @@ namespace BLTAdoptAHero
         // Block ExpelClanFromKingdomDecision for BLT kingdoms
         [HarmonyPatch(typeof(ExpelClanFromKingdomDecision), MethodType.Constructor, new Type[] { typeof(Clan), typeof(Clan) })]
         internal static class ExpelClanFromKingdomDecisionConstructorPatch
+    }
+
+    [HarmonyPatch(typeof(DefaultMarriageModel), nameof(DefaultMarriageModel.GetClanAfterMarriage))]
+    class BLTMarriage
+    {
+        static void Postfix(ref Clan __result, Hero firstHero, Hero secondHero)
+        {
+            if (firstHero.Clan?.Leader == firstHero || secondHero.Clan?.Leader == secondHero)
+                return;
+
+            if (firstHero.IsAdopted() == true || secondHero.IsAdopted() == true)
+                return;
+
+            if (firstHero.Clan?.Leader.IsAdopted() == false && secondHero.Clan?.Leader.IsAdopted() == false)
+                return;
+
+            if (firstHero.Clan?.Leader.IsAdopted() == true && secondHero.Clan?.Leader.IsAdopted() == true)
+                return;
+
+            if (firstHero.Clan.Leader.IsAdopted())
+            {
+                __result = firstHero.Clan;
+            }
+            else { __result = secondHero.Clan; }
+
+        }
+    }
+}
+#endregion
+
+#region OnShipOwnerChanged
+
+[HarmonyPatch(typeof(ShipTradeCampaignBehavior), "OnShipOwnerChanged")]
+    static class BLT_Suppress_OnShipOwnerChanged_Exception
+    {
+        static Exception Finalizer(Exception __exception)
         {
             [HarmonyPrefix]
             private static bool Prefix(Clan proposerClan)
