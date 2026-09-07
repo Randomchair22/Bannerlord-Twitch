@@ -405,3 +405,6 @@ AutoTranslate/.venv/
 AutoTranslate/.key/
 
 .idea
+
+# Twitch OAuth credentials - never commit real tokens
+Bannerlord-Twitch-Auth.yaml

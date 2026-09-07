@@ -803,17 +803,39 @@ namespace BLTAdoptAHero
     {
         static bool Prefix(Town __instance, MapEvent.BattleTypes battleType, ref IEnumerable<PartyBase> __result)
         {
+            // This replacement reads SiegeEvent.BesiegerCamp.MapFaction, which is only populated
+            // while a siege is actually standing. Between assault waves - the settlement is asked
+            // for its defenders again while the siege is being rebuilt - those can be null, and
+            // the original method copes with that perfectly well. So only take over when the data
+            // this patch needs is present, and otherwise let the game's own method run.
+            if (__instance?.Settlement?.SiegeEvent?.BesiegerCamp?.MapFaction == null)
+            {
+                return true;
+            }
+
             __result = GetDefenderPartiesWithMilitia(__instance, battleType);
             return false; // Skip original method
         }
 
         static IEnumerable<PartyBase> GetDefenderPartiesWithMilitia(Town town, MapEvent.BattleTypes battleType)
         {
+            if (town?.Settlement == null) yield break;
+
             yield return town.Settlement.Party;
+
+            // Checked again here, and not only in the Prefix. This is an iterator method: the body
+            // does not run when the Prefix builds it, but later, while the caller walks the
+            // sequence - by which point the siege may no longer be the one we validated. That
+            // deferral is also why a throw from here surfaces in the caller's stack with no BLT
+            // frame in sight.
+            var besiegerFaction = town.Settlement.SiegeEvent?.BesiegerCamp?.MapFaction;
+            if (besiegerFaction == null) yield break;
 
             foreach (MobileParty mobileParty in town.Settlement.Parties)
             {
-                if (mobileParty.MapFaction.IsAtWarWith(town.Settlement.SiegeEvent.BesiegerCamp.MapFaction)
+                if (mobileParty?.MapFaction == null) continue;
+
+                if (mobileParty.MapFaction.IsAtWarWith(besiegerFaction)
                     && mobileParty.IsActive
                     && !mobileParty.IsVillager
                     && !mobileParty.IsCaravan
