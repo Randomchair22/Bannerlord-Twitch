@@ -3,7 +3,13 @@
         <transition-group name='bltconsole-items-t' tag='div'>
             <div class='bltconsole-entry' v-for='item in items' v-bind:key='item.id'>
                 <div class='bltconsole-text' 
-                     v-bind:class="'bltconsole-text-style-' + item.style" v-html='item.message'></div>
+                     v-bind:class="'bltconsole-text-style-' + item.style">
+                    <template v-if='item.parts'>
+                        <span v-for='(part, index) in item.parts' v-bind:key='index'
+                              v-bind:class='part.className' v-bind:style='part.style'>{{ part.text }}</span>
+                    </template>
+                    <template v-else>{{ item.message }}</template>
+                </div>
             </div>
         </transition-group>
     </div>

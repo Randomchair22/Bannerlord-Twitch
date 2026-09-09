@@ -21,26 +21,26 @@ $(document).ready(function () {
             .map(s => s.split(userNameRegex)).reduce((a, b) => a.concat(b))
             .map(s => {
                 if(s.match(plusRegex)) {
-                    return "<span class='plus-text-style'>+</span>"
+                    return { className: 'plus-text-style', text: '+' };
                 }
                 else if(s.match(minusRegex)) {
-                    return "<span class='minus-text-style'>−</span>"
+                    return { className: 'minus-text-style', text: '−' };
                 }
                 else if(s.match(goldRegex)) {
-                    return "<span class='gold-text-style'>"
-                        + (s.length > 1 ? o.format(parseInt(s.substring(0, s.length - 1))) : "")
-                        + "⦷</span>";
+                    return {
+                        className: 'gold-text-style',
+                        text: (s.length > 1 ? o.format(parseInt(s.substring(0, s.length - 1))) : "") + "⦷"
+                    };
                 }
                 else if(s.match(userNameRegex)) {
                     const nameColor = twitch.getUserColor(s.substr(1));
-                    return "<span class='username-text-style' style='color: " + nameColor
-                        + "'>" + s + "</span><span class='default-text-style'></span>";
+                    return { className: 'username-text-style', style: { color: nameColor }, text: s };
                 }
-                return "<span class='default-text-style'>" + s + "</span>";
+                return { className: 'default-text-style', text: s };
             });
         const processedMessage = {
             id: message.id,
-            message: splitMessage.join(''),
+            parts: splitMessage,
             style: message.style
         };
         bltConsole.items.push(processedMessage);
