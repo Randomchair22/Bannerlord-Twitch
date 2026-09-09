@@ -12,6 +12,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const fs = require('fs');
 const path = require('path');
 const open = require('open').default;
+const { isTrustedRequest, isTrustedSocket } = require('./relay-security');
 
 // ── Config ────────────────────────────────────────────────────
 const CONFIG_PATH = path.join(__dirname, 'config.json');
@@ -41,6 +42,10 @@ if (!fs.existsSync(CONFIG_PATH)) saveConfig(config);
 // ── Express ───────────────────────────────────────────────────
 const app = express();
 const server = http.createServer(app);
+app.use((req, res, next) => {
+    if (!isTrustedRequest(req)) return res.sendStatus(403);
+    next();
+});
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
@@ -100,7 +105,10 @@ app.post('/save-token', (req, res) => {
 });
 
 // ── WebSocket server ──────────────────────────────────────────
-const wss = new WebSocketServer({ server: server, path: '/ws' });
+const wss = new WebSocketServer({
+    server: server, path: '/ws', maxPayload: 1024 * 1024,
+    verifyClient: info => isTrustedSocket(info.req),
+});
 // NOTE: using the same HTTP server so OBS doesn't block a second port
 
 let gameSocket = null;               // Single game mod connection
@@ -179,7 +187,7 @@ function broadcast(obj) {
 }
 
 // ── Start ─────────────────────────────────────────────────────
-server.listen(PORT_HTTP, () => {
+server.listen(PORT_HTTP, '127.0.0.1', () => {
     console.log('');
     console.log('╔══════════════════════════════════════════════╗');
     console.log('║         BLT Overlay — Local Server           ║');

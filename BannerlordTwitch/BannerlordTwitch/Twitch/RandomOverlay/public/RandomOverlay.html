@@ -614,6 +614,12 @@ function byId(id) { return document.getElementById(id); }
 function set(id, v) { const el = byId(id); if (el) el.textContent = v; }
 function fnum(n) { return Number(n).toLocaleString(); }
 function esc(s) { return String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+// Encode a value inside a quoted JavaScript string in an HTML event attribute.
+// Unicode escapes survive HTML parsing without becoming quotes or markup.
+function jsText(value) {
+  return String(value ?? '').split('').map(c =>
+    '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+}
 function barW(id, f) { const el = byId(id); if (el) el.style.width = (Math.min(1, Math.max(0, f)) * 100) + '%'; }
 
 // ═══════════════════════════════════════════════════════════════
@@ -863,9 +869,9 @@ function notifProp(m) {
   el.innerHTML = `<div class="nt">📨 Incoming Proposal</div>
     <div class="nb">${fr} proposes <strong>${pt}</strong></div>
     <div class="na">
-      <button class="btn g" onclick="cmd('diplomacy accept ${pt} ${fr}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">✓ Accept</button>
-      <button class="btn r" onclick="cmd('diplomacy reject ctw ${fr}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">✗ Reject</button>
-      <button class="btn b" onclick="openDiplo();selectKdom('${fr}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">🌐 View</button>
+      <button class="btn g" onclick="cmd('diplomacy accept ${jsText(m.proposalType ?? "Proposal")} ${jsText(m.from ?? "?")}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">✓ Accept</button>
+      <button class="btn r" onclick="cmd('diplomacy reject ctw ${jsText(m.from ?? "?")}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">✗ Reject</button>
+      <button class="btn b" onclick="openDiplo();selectKdom('${jsText(m.from ?? "?")}');this.closest('.nf').remove()" style="margin:0;padding:3px 9px">🌐 View</button>
     </div>`;
   byId('notifs').appendChild(el);
 }
@@ -984,7 +990,7 @@ function renderKdomList() {
   const order = ['war','allied','nap','trade','truce','neutral'];
   kingdoms.sort((a, b) => order.indexOf(getEffRel(a)) - order.indexOf(getEffRel(b)) || a.name.localeCompare(b.name));
   byId('d-kdom-list').innerHTML = kingdoms.map(k => `
-    <div class="k-item${G.selK === k.name ? ' sel' : ''}" onclick="selectKdom('${esc(k.name)}')">
+    <div class="k-item${G.selK === k.name ? ' sel' : ''}" onclick="selectKdom('${jsText(k.name)}')">
       <div class="k-dot ${getEffRel(k)}"></div>
       <div class="k-name">${esc(k.name)}</div>
       <div class="k-meta">${relBadge(k)}<br>${fnum(k.strength ?? 0)}</div>
@@ -1001,7 +1007,7 @@ function getEffRel(k) {
 }
 function relBadge(k) {
   const r = getEffRel(k);
-  const label  = {war:'⚔ War', allied:'🤝 Allied', nap:'🕊 NAP', trade:'📦 Trade', truce:`⏳ ${k.truceRemaining}d`, neutral:'—'};
+  const label  = {war:'⚔ War', allied:'🤝 Allied', nap:'🕊 NAP', trade:'📦 Trade', truce:`⏳ ${esc(k.truceRemaining)}d`, neutral:'—'};
   const colour = {war:'re-hi', allied:'gr-hi', nap:'bl-hi', trade:'wa-hi', truce:'gold', neutral:'dim'};
   return `<span style="font-size:8.5px;color:var(--${colour[r]})">${label[r]}</span>`;
 }
@@ -1095,7 +1101,7 @@ function computeActions(k) {
 function actBtn(label, cmdStr, act, cls = '', onclk = '') {
   if (act && !act.ok)
     return `<div class="act-item"><button class="act-btn dis ${cls}">${label}</button><div class="act-why">✕ ${esc(act.why)}</div></div>`;
-  const h = onclk ? `onclick="${onclk}"` : cmdStr ? `onclick="cmd('${cmdStr}')"` : '';
+  const h = onclk ? `onclick="${esc(onclk)}"` : cmdStr ? `onclick="cmd('${jsText(cmdStr)}')"` : '';
   return `<div class="act-item"><button class="act-btn ${cls}" ${h}>${label}</button></div>`;
 }
 function togglePeaceForm(id) { byId(id)?.classList.toggle('on'); }
@@ -1117,22 +1123,22 @@ function openStanceModal(kname)    { modal(`War stance vs ${kname} (balanced/def
 function renderKdomDetail(k) {
   const acts = computeActions(k);
   const rel  = getEffRel(k);
-  const relLabel = { war:'⚔ AT WAR', allied:'🤝 ALLIED', nap:'🕊 NON-AGGRESSION PACT', trade:'📦 TRADE AGREEMENT', truce:`⏳ TRUCE (${k.truceRemaining} days)`, neutral:'Neutral' };
+  const relLabel = { war:'⚔ AT WAR', allied:'🤝 ALLIED', nap:'🕊 NON-AGGRESSION PACT', trade:'📦 TRADE AGREEMENT', truce:`⏳ TRUCE (${esc(k.truceRemaining)} days)`, neutral:'Neutral' };
   const relIco   = { war:'⚔', allied:'🤝', nap:'🕊', trade:'📦', truce:'⏳', neutral:'•' };
   let tributeHtml = '';
-  if (k.tributePaying    > 0) tributeHtml += `<div class="tribute-box"><span class="tb-pay">↑ Paying: ${fnum(k.tributePaying)}g/day</span> (${k.tributeDays}d)</div>`;
-  if (k.tributeReceiving > 0) tributeHtml += `<div class="tribute-box"><span class="tb-rec">↓ Receiving: ${fnum(k.tributeReceiving)}g/day</span> (${k.tributeDays}d)</div>`;
+  if (k.tributePaying    > 0) tributeHtml += `<div class="tribute-box"><span class="tb-pay">↑ Paying: ${fnum(k.tributePaying)}g/day</span> (${esc(k.tributeDays)}d)</div>`;
+  if (k.tributeReceiving > 0) tributeHtml += `<div class="tribute-box"><span class="tb-rec">↓ Receiving: ${fnum(k.tributeReceiving)}g/day</span> (${esc(k.tributeDays)}d)</div>`;
   let stanceHtml = '';
   if (rel === 'war') {
     const cur = k.warStance || 'balanced';
     stanceHtml = `<div class="act-sec"><div class="act-sec-t">⚔ War Stance</div><div class="stance-row">
-      <button class="stance-btn${cur==='balanced'  ?' cur':''}" onclick="setStance('${esc(k.name)}','balanced')">⚖ Balanced</button>
-      <button class="stance-btn${cur==='defensive' ?' cur':''}" onclick="setStance('${esc(k.name)}','defensive')">🛡 Defensive</button>
-      <button class="stance-btn${cur==='aggressive'?' cur':''}" onclick="setStance('${esc(k.name)}','aggressive')">🔥 Aggressive</button>
+      <button class="stance-btn${cur==='balanced'  ?' cur':''}" onclick="setStance('${jsText(k.name)}','balanced')">⚖ Balanced</button>
+      <button class="stance-btn${cur==='defensive' ?' cur':''}" onclick="setStance('${jsText(k.name)}','defensive')">🛡 Defensive</button>
+      <button class="stance-btn${cur==='aggressive'?' cur':''}" onclick="setStance('${jsText(k.name)}','aggressive')">🔥 Aggressive</button>
     </div></div>`;
   }
   const myProp  = (G.diplomacy?.proposals ?? []).find(p => p.from === k.name);
-  const propNote = myProp ? `<div class="note" style="margin-bottom:6px;color:var(--wa-hi)">📨 Incoming ${myProp.type} proposal — see Proposals tab</div>` : '';
+  const propNote = myProp ? `<div class="note" style="margin-bottom:6px;color:var(--wa-hi)">📨 Incoming ${esc(myProp.type)} proposal — see Proposals tab</div>` : '';
   const ourWars = (G.diplomacy?.kingdoms ?? []).filter(k2 => k2.relation === 'war').map(k2 => k2.name);
   const ctwSel  = ourWars.length ? `<select class="sel" id="ctw-target-${esc(k.name)}" style="margin-bottom:4px">${ourWars.map(w=>`<option>${esc(w)}</option>`).join('')}</select>` : '';
   byId('dp-kdom').innerHTML = `
@@ -1145,9 +1151,9 @@ function renderKdomDetail(k) {
       <div class="kd-ruler">Ruler: ${esc(k.ruler??'Unknown')} · Capital: ${esc(k.capital??'Unknown')}</div>
       <div class="kd-stats">
         <div class="kd-stat"><span class="kd-sl">Strength</span><span class="kd-sv" style="color:var(--gold)">${fnum(k.strength??0)}</span></div>
-        <div class="kd-stat"><span class="kd-sl">Clans</span><span class="kd-sv">${k.clans??'?'}</span></div>
-        <div class="kd-stat"><span class="kd-sl">Towns</span><span class="kd-sv" style="color:var(--gr-hi)">${k.towns??'?'}</span></div>
-        <div class="kd-stat"><span class="kd-sl">Castles</span><span class="kd-sv">${k.castles??'?'}</span></div>
+        <div class="kd-stat"><span class="kd-sl">Clans</span><span class="kd-sv">${esc(k.clans??'?')}</span></div>
+        <div class="kd-stat"><span class="kd-sl">Towns</span><span class="kd-sv" style="color:var(--gr-hi)">${esc(k.towns??'?')}</span></div>
+        <div class="kd-stat"><span class="kd-sl">Castles</span><span class="kd-sv">${esc(k.castles??'?')}</span></div>
       </div>
     </div>
     <div class="kd-rel ${rel}">${relIco[rel]} ${relLabel[rel]}</div>
@@ -1157,58 +1163,58 @@ function renderKdomDetail(k) {
         ${stanceHtml}
         <div class="act-sec">
           <div class="act-sec-t">☮ Peace</div>
-          ${actBtn('☮ Peace Offer…','',acts.peaceOffer,'w',`togglePeaceForm("pf-offer-${esc(k.name)}")`)}
+          ${actBtn('☮ Peace Offer…','',acts.peaceOffer,'w',`togglePeaceForm("pf-offer-${jsText(k.name)}")`)}
           <div class="exp-form" id="pf-offer-${esc(k.name)}">
             <div class="exp-row"><label>Tribute/day:</label><input class="inp" id="pf-oa-${esc(k.name)}" type="number" placeholder="0=none" style="width:75px"></div>
             <div class="exp-row">
-              <button class="btn g" onclick="sendPeace('${esc(k.name)}','offer')" style="margin:0">Send Offer</button>
-              <button class="btn" onclick="togglePeaceForm('pf-offer-${esc(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
+              <button class="btn g" onclick="sendPeace('${jsText(k.name)}','offer')" style="margin:0">Send Offer</button>
+              <button class="btn" onclick="togglePeaceForm('pf-offer-${jsText(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
             </div>
           </div>
-          ${actBtn('⚔ Peace Demand…','',acts.peaceDemand,'r',`togglePeaceForm("pf-demand-${esc(k.name)}")`)}
+          ${actBtn('⚔ Peace Demand…','',acts.peaceDemand,'r',`togglePeaceForm("pf-demand-${jsText(k.name)}")`)}
           <div class="exp-form" id="pf-demand-${esc(k.name)}">
             <div class="exp-row"><label>Tribute/day:</label><input class="inp" id="pf-da-${esc(k.name)}" type="number" placeholder="0=none" style="width:75px"></div>
             <div class="exp-row">
-              <button class="btn r" onclick="sendPeace('${esc(k.name)}','demand')" style="margin:0">Send Demand</button>
-              <button class="btn" onclick="togglePeaceForm('pf-demand-${esc(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
+              <button class="btn r" onclick="sendPeace('${jsText(k.name)}','demand')" style="margin:0">Send Demand</button>
+              <button class="btn" onclick="togglePeaceForm('pf-demand-${jsText(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
             </div>
           </div>
         </div>
         <div class="act-sec">
           <div class="act-sec-t">⚔ War</div>
-          ${actBtn('⚔ Declare War…','',acts.war,'r',`confirmWar("${esc(k.name)}")`)}
+          ${actBtn('⚔ Declare War…','',acts.war,'r',`confirmWar("${jsText(k.name)}")`)}
           <div class="exp-form" id="war-conf-${esc(k.name)}">
             <div style="font-size:10.5px;color:var(--re-hi);margin-bottom:5px">⚠ Declare war on ${esc(k.name)}?<br><span style="color:var(--dim);font-size:9.5px">Strength: ${fnum(k.strength??0)}</span></div>
             <div class="exp-row">
-              <button class="btn r" onclick="cmd('diplomacy war ${esc(k.name)} yes')" style="margin:0">✓ Confirm War</button>
-              <button class="btn" onclick="togglePeaceForm('war-conf-${esc(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
+              <button class="btn r" onclick="cmd('diplomacy war ${jsText(k.name)} yes')" style="margin:0">✓ Confirm War</button>
+              <button class="btn" onclick="togglePeaceForm('war-conf-${jsText(k.name)}')" style="margin:0;width:auto;padding:4px 7px">✕</button>
             </div>
           </div>
           ${actBtn('📊 War Details','diplomacy info wars',{ok:rel==='war',why:rel!=='war'?'Not at war':null})}
-          ${actBtn('⚖ War Stance…','',{ok:rel==='war',why:rel!=='war'?'Not at war':null},'',`openStanceModal("${esc(k.name)}")`)}
+          ${actBtn('⚖ War Stance…','',{ok:rel==='war',why:rel!=='war'?'Not at war':null},'',`openStanceModal("${jsText(k.name)}")`)}
         </div>
       </div>
       <div class="kd-col">
         <div class="act-sec">
           <div class="act-sec-t">🤝 Treaty Actions</div>
-          ${actBtn('🕊 Propose NAP',      `diplomacy nap ${esc(k.name)}`,           acts.nap,           'b')}
-          ${actBtn('🤝 Propose Alliance', `diplomacy alliance ${esc(k.name)}`,       acts.alliance,      'g')}
-          ${actBtn('📦 Propose Trade',    `diplomacy trade ${esc(k.name)}`,          acts.trade)}
-          ${actBtn('💔 Break NAP',        `diplomacy break nap ${esc(k.name)}`,      acts.breakNap,      'r')}
-          ${actBtn('💔 Break Alliance',   `diplomacy break alliance ${esc(k.name)}`, acts.breakAlliance, 'r')}
+          ${actBtn('🕊 Propose NAP',      `diplomacy nap ${k.name}`,           acts.nap,           'b')}
+          ${actBtn('🤝 Propose Alliance', `diplomacy alliance ${k.name}`,       acts.alliance,      'g')}
+          ${actBtn('📦 Propose Trade',    `diplomacy trade ${k.name}`,          acts.trade)}
+          ${actBtn('💔 Break NAP',        `diplomacy break nap ${k.name}`,      acts.breakNap,      'r')}
+          ${actBtn('💔 Break Alliance',   `diplomacy break alliance ${k.name}`, acts.breakAlliance, 'r')}
         </div>
         <div class="act-sec">
           <div class="act-sec-t">📣 Alliance Actions</div>
           ${acts.ctw.ok
-            ? `${ctwSel}<button class="act-btn w" onclick="sendCTW('${esc(k.name)}')">📣 Call ${esc(k.name)} to War →</button>`
+            ? `${ctwSel}<button class="act-btn w" onclick="sendCTW('${jsText(k.name)}')">📣 Call ${esc(k.name)} to War →</button>`
             : `<div class="act-item"><button class="act-btn dis">📣 Call to War</button><div class="act-why">✕ ${esc(acts.ctw.why)}</div></div>`}
         </div>
         <div class="act-sec">
           <div class="act-sec-t">📋 Lookup</div>
-          <button class="act-btn" onclick="cmd('campaigninfo kingdom ${esc(k.name)}')">📊 Kingdom Info</button>
-          <button class="act-btn" onclick="cmd('campaigninfo war ${esc(k.name)}')">⚔ War Details</button>
-          <button class="act-btn" onclick="cmd('campaigninfo clans ${esc(k.name)}')">🏰 Clan List</button>
-          <button class="act-btn" onclick="cmd('campaigninfo fiefs ${esc(k.name)}')">🏰 Fief List</button>
+          <button class="act-btn" onclick="cmd('campaigninfo kingdom ${jsText(k.name)}')">📊 Kingdom Info</button>
+          <button class="act-btn" onclick="cmd('campaigninfo war ${jsText(k.name)}')">⚔ War Details</button>
+          <button class="act-btn" onclick="cmd('campaigninfo clans ${jsText(k.name)}')">🏰 Clan List</button>
+          <button class="act-btn" onclick="cmd('campaigninfo fiefs ${jsText(k.name)}')">🏰 Fief List</button>
         </div>
       </div>
     </div>`;
@@ -1224,8 +1230,8 @@ function renderDiploOverview() {
   const trades = kdoms.filter(k => k.relation === 'trade');
   const truces = kdoms.filter(k => k.truceRemaining > 0 && k.relation !== 'war');
   const card   = (title, items, cls, empty) => `<div class="ov-card"><div class="ov-card-t">${title}</div>${
-    items.length ? items.map(k=>`<div class="ov-entry ${cls}" onclick="selectKdom('${esc(k.name)}')" style="cursor:pointer">${esc(k.name)}</div>`).join('')
-                 : `<div class="ov-entry" style="color:var(--dim)">${empty}</div>`}</div>`;
+    items.length ? items.map(k=>`<div class="ov-entry ${cls}" onclick="selectKdom('${jsText(k.name)}')" style="cursor:pointer">${esc(k.name)}</div>`).join('')
+                 : `<div class="ov-entry" style="color:var(--dim)">${esc(empty)}</div>`}</div>`;
   byId('dp-overview').innerHTML = `
     <div style="margin-bottom:8px"><button class="btn" onclick="cmd('diplomacy info')">🔄 Refresh Diplomacy</button></div>
     <div class="ov-grid">
@@ -1276,21 +1282,21 @@ function renderProposals() {
       : `${p.type} proposal`;
     html += `<div class="prop-card">
       <div class="prop-from">📨 ${esc(p.from)}</div>
-      <div class="prop-desc">${desc}</div>
-      <div class="prop-days">⏳ ${p.daysRemaining??'?'} days to respond</div>
+      <div class="prop-desc">${esc(desc)}</div>
+      <div class="prop-days">⏳ ${esc(p.daysRemaining??'?')} days to respond</div>
       <div class="prop-acts">
-        <button class="btn g" onclick="cmd('diplomacy accept ${esc(p.type)} ${esc(p.from)}')" style="margin:0;flex:1">✓ Accept</button>
-        <button class="btn b" onclick="selectKdom('${esc(p.from)}')" style="margin:0;flex:1">🌐 View</button>
+        <button class="btn g" onclick="cmd('diplomacy accept ${jsText(p.type)} ${jsText(p.from)}')" style="margin:0;flex:1">✓ Accept</button>
+        <button class="btn b" onclick="selectKdom('${jsText(p.from)}')" style="margin:0;flex:1">🌐 View</button>
       </div></div>`;
   });
   ctws.forEach(ctw => {
     html += `<div class="prop-card">
       <div class="prop-from">📣 Call to War: ${esc(ctw.caller)}</div>
       <div class="prop-desc">Join war against <strong>${esc(ctw.target)}</strong></div>
-      <div class="prop-days">⏳ ${ctw.daysRemaining??'?'} days to respond</div>
+      <div class="prop-days">⏳ ${esc(ctw.daysRemaining??'?')} days to respond</div>
       <div class="prop-acts">
-        <button class="btn g" onclick="cmd('diplomacy accept ctw ${esc(ctw.caller)}')" style="margin:0;flex:1">⚔ Join War</button>
-        <button class="btn r" onclick="cmd('diplomacy reject ctw ${esc(ctw.caller)}')" style="margin:0;flex:1">✗ Decline</button>
+        <button class="btn g" onclick="cmd('diplomacy accept ctw ${jsText(ctw.caller)}')" style="margin:0;flex:1">⚔ Join War</button>
+        <button class="btn r" onclick="cmd('diplomacy reject ctw ${jsText(ctw.caller)}')" style="margin:0;flex:1">✗ Decline</button>
       </div></div>`;
   });
   byId('dp-proposals').innerHTML = html;
@@ -1306,22 +1312,22 @@ function renderWars() {
     wars.map(k => {
       const cur = k.warStance || 'balanced';
       return `<div class="war-card">
-        <div class="war-kn" onclick="selectKdom('${esc(k.name)}')" style="cursor:pointer">⚔ ${esc(k.name)} (${fnum(k.strength??0)} str)</div>
+        <div class="war-kn" onclick="selectKdom('${jsText(k.name)}')" style="cursor:pointer">⚔ ${esc(k.name)} (${fnum(k.strength??0)} str)</div>
         <div class="war-meta">
-          <div class="wm-stat"><span class="wm-l">Days</span><span class="wm-v">${k.warDays??'?'}</span></div>
-          <div class="wm-stat"><span class="wm-l">Our Cas.</span><span class="wm-v" style="color:var(--re-hi)">${k.ourCasualties??'?'}</span></div>
-          <div class="wm-stat"><span class="wm-l">Their Cas.</span><span class="wm-v" style="color:var(--gr-hi)">${k.theirCasualties??'?'}</span></div>
-          <div class="wm-stat"><span class="wm-l">Raids</span><span class="wm-v">${k.ourRaids??'?'}</span></div>
-          <div class="wm-stat"><span class="wm-l">Sieges</span><span class="wm-v">${k.ourSieges??'?'}</span></div>
+          <div class="wm-stat"><span class="wm-l">Days</span><span class="wm-v">${esc(k.warDays??'?')}</span></div>
+          <div class="wm-stat"><span class="wm-l">Our Cas.</span><span class="wm-v" style="color:var(--re-hi)">${esc(k.ourCasualties??'?')}</span></div>
+          <div class="wm-stat"><span class="wm-l">Their Cas.</span><span class="wm-v" style="color:var(--gr-hi)">${esc(k.theirCasualties??'?')}</span></div>
+          <div class="wm-stat"><span class="wm-l">Raids</span><span class="wm-v">${esc(k.ourRaids??'?')}</span></div>
+          <div class="wm-stat"><span class="wm-l">Sieges</span><span class="wm-v">${esc(k.ourSieges??'?')}</span></div>
         </div>
         <div class="stance-row">
-          <button class="stance-btn${cur==='balanced'  ?' cur':''}" onclick="setStance('${esc(k.name)}','balanced')">⚖ Balanced</button>
-          <button class="stance-btn${cur==='defensive' ?' cur':''}" onclick="setStance('${esc(k.name)}','defensive')">🛡 Defensive</button>
-          <button class="stance-btn${cur==='aggressive'?' cur':''}" onclick="setStance('${esc(k.name)}','aggressive')">🔥 Aggressive</button>
+          <button class="stance-btn${cur==='balanced'  ?' cur':''}" onclick="setStance('${jsText(k.name)}','balanced')">⚖ Balanced</button>
+          <button class="stance-btn${cur==='defensive' ?' cur':''}" onclick="setStance('${jsText(k.name)}','defensive')">🛡 Defensive</button>
+          <button class="stance-btn${cur==='aggressive'?' cur':''}" onclick="setStance('${jsText(k.name)}','aggressive')">🔥 Aggressive</button>
         </div>
         <div class="btn2" style="margin-top:5px">
-          <button class="btn w" onclick="sendPeace('${esc(k.name)}','offer')">☮ Quick Peace Offer</button>
-          <button class="btn" onclick="cmd('campaigninfo war ${esc(k.name)}')">📊 War Details</button>
+          <button class="btn w" onclick="sendPeace('${jsText(k.name)}','offer')">☮ Quick Peace Offer</button>
+          <button class="btn" onclick="cmd('campaigninfo war ${jsText(k.name)}')">📊 War Details</button>
         </div>
       </div>`;
     }).join('');
@@ -1334,10 +1340,10 @@ function renderClanDiplo() {
     <div class="clan-card-n">${esc(c.name)}</div>
     <div class="clan-card-m">Leader: ${esc(c.leader??'?')} · ${c.atWar?'⚔ At War':c.allied?'🤝 Allied':'Neutral'}</div>
     <div class="btn2">${c.allied
-      ? `<button class="btn r" onclick="cmd('diplomacy clan break ${esc(c.name)}')">💔 Break</button><button class="btn w" onclick="clanCTW('${esc(c.name)}')">📣 CTW…</button>`
+      ? `<button class="btn r" onclick="cmd('diplomacy clan break ${jsText(c.name)}')">💔 Break</button><button class="btn w" onclick="clanCTW('${jsText(c.name)}')">📣 CTW…</button>`
       : c.proposalFrom
-        ? `<button class="btn g" onclick="cmd('diplomacy clan accept ${esc(c.name)}')">✓ Accept Proposal</button>`
-        : `<button class="btn g" onclick="cmd('diplomacy clan ally ${esc(c.name)}')">🤝 Propose</button><button class="btn r" onclick="clanWar('${esc(c.name)}')">⚔ War…</button>`
+        ? `<button class="btn g" onclick="cmd('diplomacy clan accept ${jsText(c.name)}')">✓ Accept Proposal</button>`
+        : `<button class="btn g" onclick="cmd('diplomacy clan ally ${jsText(c.name)}')">🤝 Propose</button><button class="btn r" onclick="clanWar('${jsText(c.name)}')">⚔ War…</button>`
     }</div></div>`).join('')
   : '<div class="note">No independent clans tracked</div>';
   html += `<div class="sec-t" style="margin:12px 0 6px">📤 Manual Commands</div>

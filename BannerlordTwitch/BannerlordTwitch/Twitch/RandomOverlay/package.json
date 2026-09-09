@@ -5,7 +5,8 @@
     "type": "commonjs",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "test": "node --test security.test.js"
     },
     "dependencies": {
         "express": "^4.22.1",

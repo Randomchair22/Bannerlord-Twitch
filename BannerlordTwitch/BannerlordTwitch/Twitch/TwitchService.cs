@@ -105,8 +105,10 @@ namespace BannerlordTwitch
                 UserName = CleanDisplayName(userName),
                 Args = args,
                 Source = source,
-                IsModerator = true,      // ← IMPORTANT (see below)
-                IsBroadcaster = true     // overlay = trusted
+                // Overlay-supplied names are not authenticated Twitch identities.
+                // Privileged commands must come through authenticated Twitch chat.
+                IsModerator = false,
+                IsBroadcaster = false
             };
     }
 

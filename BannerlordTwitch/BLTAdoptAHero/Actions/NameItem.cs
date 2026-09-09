@@ -58,12 +58,23 @@ namespace BLTAdoptAHero
 
             // sanitize # out of the new name in case it breaks something 
             string itemNewName = string.Join(" ", argParts.Skip(1)).Replace("#", "");
+            if (ContainsHtmlMarkup(itemNewName))
+            {
+                ActionManager.SendReply(context, "{=}Item names cannot contain HTML.".Translate());
+                return;
+            }
 
             BLTCustomItemsCampaignBehavior.Current.NameItem(element.ItemModifier, itemNewName);
             ActionManager.SendReply(context,
                 "{=iqNEr6Y7}{PreviousName} renamed to {NewName}"
                     .Translate(("PreviousName", previousName), ("NewName", element.GetModifiedItemName().ToString()))
                 );
+        }
+
+        private static bool ContainsHtmlMarkup(string value)
+        {
+            string lower = value.ToLowerInvariant();
+            return value.Contains("<") || value.Contains(">") || lower.Contains("&lt;") || lower.Contains("&gt;");
         }
     }
 }
